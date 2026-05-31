@@ -1,11 +1,14 @@
 import hashlib
+import logging
 import math
 import struct
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import httpx
-
 from app.core.config import settings
+from app.core.exceptions import ConfigurationError, EmbeddingError, OpenAIAPIError
+from app.core.openai_http import post_openai
+
+logger = logging.getLogger(__name__)
 
 
 def _chunked(items: list[str], size: int) -> list[list[str]]:
@@ -14,16 +17,30 @@ def _chunked(items: list[str], size: int) -> list[list[str]]:
 
 class EmbeddingService:
     def embed_text(self, text: str) -> list[float]:
-        return self.embed_texts([text])[0]
+        if not text.strip():
+            raise EmbeddingError("Cannot embed empty text")
+
+        embeddings = self.embed_texts([text])
+        if not embeddings:
+            raise EmbeddingError(
+                f"No embeddings returned for provider={settings.embedding_provider!r}. "
+                "Set EMBEDDING_PROVIDER=openai with OPENAI_API_KEY, or use fake."
+            )
+        return embeddings[0]
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        if settings.embedding_provider == "openai":
+
+        provider = settings.embedding_provider
+        if provider == "openai":
             return self._embed_openai_batch(texts)
-        # commented out fake embedding for now, until we have a way to test it
-        # return [self._embed_fake(text) for text in texts]
-        return []
+        if provider == "fake":
+            return [self._embed_fake(text) for text in texts]
+
+        raise ConfigurationError(
+            f"Unsupported embedding_provider={provider!r}. Use 'openai' or 'fake'."
+        )
 
     def embed_texts_parallel(
         self,
@@ -57,43 +74,62 @@ class EmbeddingService:
             }
             for future in as_completed(futures):
                 index = futures[future]
-                ordered[index] = future.result()
+                try:
+                    ordered[index] = future.result()
+                except (ConfigurationError, EmbeddingError, OpenAIAPIError):
+                    raise
+                except Exception as exc:
+                    logger.exception("Parallel embedding batch %s failed", index)
+                    raise EmbeddingError(
+                        f"Parallel embedding batch {index} failed: {exc}"
+                    ) from exc
 
-        results = []
-        for chunk_embeddings in ordered:
-            assert chunk_embeddings is not None
+        results: list[list[float]] = []
+        for batch_index, chunk_embeddings in enumerate(ordered):
+            if chunk_embeddings is None:
+                raise EmbeddingError(
+                    f"Parallel embedding batch {batch_index} returned no result"
+                )
             results.extend(chunk_embeddings)
         return results
 
     def _embed_openai_batch(self, texts: list[str]) -> list[list[float]]:
-        if not settings.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required when embedding_provider=openai")
+        try:
+            payload = post_openai(
+                "embeddings",
+                api_key=settings.openai_api_key,
+                json_body={
+                    "model": settings.openai_embedding_model,
+                    "input": texts,
+                },
+                timeout=60.0,
+                operation="embeddings",
+            )
+        except ConfigurationError:
+            raise
+        except OpenAIAPIError:
+            raise
+        except Exception as exc:
+            logger.exception("Unexpected embedding failure")
+            raise EmbeddingError(f"Embedding request failed: {exc}") from exc
 
-        response = httpx.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.openai_embedding_model,
-                "input": texts,
-            },
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        items = sorted(payload["data"], key=lambda item: item["index"])
+        data = payload.get("data")
+        if not isinstance(data, list):
+            raise EmbeddingError("OpenAI embeddings response missing 'data' list")
+
+        items = sorted(data, key=lambda item: item.get("index", 0))
         if len(items) != len(texts):
-            raise ValueError(
+            raise EmbeddingError(
                 f"Expected {len(texts)} embeddings, got {len(items)}"
             )
 
         embeddings: list[list[float]] = []
         for item in items:
-            embedding = item["embedding"]
+            embedding = item.get("embedding")
+            if not isinstance(embedding, list):
+                raise EmbeddingError("OpenAI embeddings response item missing 'embedding'")
             if len(embedding) != settings.embedding_dimensions:
-                raise ValueError(
+                raise EmbeddingError(
                     f"Expected {settings.embedding_dimensions} dimensions, got {len(embedding)}"
                 )
             embeddings.append(embedding)

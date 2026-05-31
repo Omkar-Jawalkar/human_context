@@ -1,0 +1,30 @@
+---
+description: Service-layer and OpenAI error handling conventions
+globs: app/**/*.py
+alwaysApply: true
+---
+
+# Error handling
+
+- Raise typed exceptions from `app.core.exceptions` in services — never bare `ValueError` for expected failures.
+- Use `ConfigurationError` for missing/invalid env config (e.g. missing `OPENAI_API_KEY`).
+- Use `OpenAIAPIError` for OpenAI HTTP/timeouts; call via `app.core.openai_http.post_openai`.
+- Use `EmbeddingError`, `LLMError`, `SearchError` for domain validation and response-shape failures.
+- Wrap unexpected exceptions with `logger.exception(...)`, then re-raise as the appropriate `AppError` with `from exc`.
+- Let `AppError` bubble to FastAPI; map to HTTP in `app.core.exception_handlers` — do not catch in endpoints unless translating to 404.
+- Celery/long-running jobs: catch `AppError`, persist `error_message` on the job, log, then re-raise.
+
+```python
+# Good
+try:
+    payload = post_openai("embeddings", api_key=settings.openai_api_key, ...)
+except OpenAIAPIError:
+    raise
+except Exception as exc:
+    logger.exception("Unexpected embedding failure")
+    raise EmbeddingError(f"Embedding request failed: {exc}") from exc
+
+# Bad
+response.raise_for_status()  # without typed handling
+return payload["choices"][0]["message"]["content"]  # without validation
+```

@@ -1,6 +1,7 @@
 from celery import Celery
+from celery.signals import worker_ready
 
-from app.core.config import settings
+from app.core.config import ENV_FILE, settings
 
 celery_app = Celery(
     "human_context",
@@ -20,3 +21,13 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     result_expires=3600,
 )
+
+
+@worker_ready.connect
+def log_worker_config(**_kwargs) -> None:
+    print(
+        "Celery worker config: "
+        f"embedding_provider={settings.embedding_provider!r}, "
+        f"openai_api_key={'set' if settings.openai_api_key else 'missing'}, "
+        f"env_file={ENV_FILE}"
+    )

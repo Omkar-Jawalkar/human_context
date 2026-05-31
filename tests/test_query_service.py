@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.core.exceptions import ConfigurationError
 from app.models.embedding import EmbeddingRecord
 from app.services.llm_service import LLMService
 from app.services.query_service import QueryService, query_service
@@ -30,22 +31,19 @@ def test_generate_answer_uses_gpt_model_and_context(mock_settings):
     mock_settings.openai_api_key = "test-key"
     mock_settings.openai_chat_model = "gpt-4.1"
 
-    response = MagicMock()
-    response.raise_for_status = MagicMock()
-    response.json.return_value = {
-        "choices": [{"message": {"content": "The answer is 42."}}]
-    }
-
     service = LLMService()
-    with patch("app.services.llm_service.httpx.post", return_value=response) as post:
+    with patch(
+        "app.services.llm_service.post_openai",
+        return_value={"choices": [{"message": {"content": "The answer is 42."}}]},
+    ) as post_openai:
         answer = service.generate_answer(
             "What is the answer?",
             ["First context", "Second context"],
         )
 
     assert answer == "The answer is 42."
-    post.assert_called_once()
-    payload = post.call_args.kwargs["json"]
+    post_openai.assert_called_once()
+    payload = post_openai.call_args.kwargs["json_body"]
     assert payload["model"] == "gpt-4.1"
     user_content = payload["messages"][1]["content"]
     assert "[1] First context" in user_content
@@ -57,7 +55,7 @@ def test_generate_answer_uses_gpt_model_and_context(mock_settings):
 def test_generate_answer_missing_api_key_raises(mock_settings):
     mock_settings.openai_api_key = None
     service = LLMService()
-    with pytest.raises(ValueError, match="OPENAI_API_KEY is required"):
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY is required"):
         service.generate_answer("hello", ["context"])
 
 
@@ -149,7 +147,9 @@ async def test_search_similar_messages_orders_by_distance(mock_embedding_service
     service = SearchService()
     db = AsyncMock()
     db.execute = AsyncMock(
-        return_value=MagicMock(all=MagicMock(return_value=[(hit_a.record, 0.05), (hit_b.record, 0.15)]))
+        return_value=MagicMock(
+            all=MagicMock(return_value=[(hit_a.record, 0.05), (hit_b.record, 0.15)])
+        )
     )
 
     with patch(

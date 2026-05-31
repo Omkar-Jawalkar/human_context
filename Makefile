@@ -1,4 +1,4 @@
-.PHONY: setup install dev worker flower redis postgres migrate test lint
+.PHONY: setup install dev worker flower redis postgres migrate test lint re-embed
 
 setup:
 	bash scripts/setup.sh
@@ -10,7 +10,11 @@ dev:
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 worker:
-	celery -A app.workers.celery_app worker --loglevel=info
+	cd "$(CURDIR)" && celery -A app.workers.celery_app worker --loglevel=info
+
+re-embed:
+	@test -n "$(JOB_ID)" || (echo "Usage: make re-embed JOB_ID=<import-job-uuid>" && exit 1)
+	cd "$(CURDIR)" && python -c "from app.workers.tasks import embed_import_messages; embed_import_messages.delay({}, '$(JOB_ID)')"
 
 flower:
 	celery -A app.workers.celery_app flower --port=5555

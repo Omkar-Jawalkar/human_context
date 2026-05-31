@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import engine
+from app.core.exception_handlers import app_error_handler
+from app.core.exceptions import AppError
 
 
 @asynccontextmanager
@@ -23,6 +25,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    app.add_exception_handler(AppError, app_error_handler)
 
     @app.get("/health", tags=["health"])
     async def root_health() -> dict[str, str]:

@@ -1,14 +1,20 @@
+import logging
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.exceptions import AppError
 from app.core.sync_database import get_sync_session
 from app.models.conversation import Conversation
 from app.models.embedding import EmbeddingRecord
+from app.models.enums import ImportJobStatus
 from app.models.import_job import ImportJob
 from app.models.message import Message
 from app.services.embedding_service import embedding_service
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingPipelineService:
@@ -52,10 +58,28 @@ class EmbeddingPipelineService:
 
             if pending_messages:
                 contents = [message.content for message in pending_messages]
-                if settings.embedding_provider == "openai":
-                    embeddings = embedding_service.embed_texts_parallel(contents)
-                else:
-                    embeddings = embedding_service.embed_texts(contents)
+                logger.info(
+                    "Embedding %s messages with provider=%r (openai key %s)",
+                    len(contents),
+                    settings.embedding_provider,
+                    "set" if settings.openai_api_key else "missing",
+                )
+                try:
+                    if settings.embedding_provider == "openai":
+                        embeddings = embedding_service.embed_texts_parallel(contents)
+                    else:
+                        embeddings = embedding_service.embed_texts(contents)
+                except AppError as exc:
+                    job.status = ImportJobStatus.FAILED.value
+                    job.completed_at = datetime.now(UTC)
+                    job.error_message = exc.message
+                    job.stats = {**job.stats, **stats}
+                    logger.error(
+                        "Embedding import job %s failed: %s",
+                        import_job_id,
+                        exc.message,
+                    )
+                    raise
 
                 records = [
                     EmbeddingRecord(

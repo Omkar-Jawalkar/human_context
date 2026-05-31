@@ -1,13 +1,18 @@
 import asyncio
+import logging
 import uuid
 
 from sqlalchemy import cast, select
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import AppError, EmbeddingError, SearchError
 from app.models.conversation import Conversation
 from app.models.embedding import EmbeddingRecord
 from app.services.embedding_service import embedding_service
+
+logger = logging.getLogger(__name__)
 
 
 class SearchHit:
@@ -25,7 +30,18 @@ class SearchService:
         *,
         limit: int = 5,
     ) -> list[SearchHit]:
-        query_vec = await asyncio.to_thread(embedding_service.embed_text, query)
+        if not query.strip():
+            raise SearchError("Search query must not be empty")
+        if limit < 1:
+            raise SearchError("Search limit must be at least 1")
+
+        try:
+            query_vec = await asyncio.to_thread(embedding_service.embed_text, query)
+        except AppError:
+            raise
+        except Exception as exc:
+            logger.exception("Failed to embed search query")
+            raise EmbeddingError(f"Failed to embed search query: {exc}") from exc
 
         distance = EmbeddingRecord.embedding.cosine_distance(query_vec).label("distance")
         stmt = (
@@ -43,7 +59,12 @@ class SearchService:
             .limit(limit)
         )
 
-        rows = (await db.execute(stmt)).all()
+        try:
+            rows = (await db.execute(stmt)).all()
+        except SQLAlchemyError as exc:
+            logger.exception("Vector search query failed for user_id=%s", user_id)
+            raise SearchError(f"Vector search failed: {exc}") from exc
+
         return [SearchHit(record=row[0], distance=row[1]) for row in rows]
 
 
