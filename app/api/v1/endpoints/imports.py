@@ -50,6 +50,7 @@ async def upload_claude_export(
     file_hash = import_api_service.compute_file_hash(data)
     file_name = file.filename or "conversations.json"
 
+    # Default user is created if not provided
     if user_id is None:
         user = await import_api_service.get_or_create_default_user(db)
     else:
