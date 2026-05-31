@@ -144,6 +144,7 @@ return result.id
 - Extension enabled on first boot via `docker/postgres/init.sql`.
 - Model: `app/models/embedding.py` — `EmbeddingRecord` with `namespace`, optional `content`, `metadata` JSONB, and `embedding` column (`vector(n)`).
 - Set `EMBEDDING_DIMENSIONS` in `.env` to match your embedding model (default `1536` for many OpenAI models).
+- Import embedding uses batched OpenAI requests: `EMBEDDING_BATCH_SIZE` (default `64`) and `EMBEDDING_MAX_PARALLEL_BATCHES` (default `4`) control chunk size and concurrent HTTP batch workers in `EmbeddingPipelineService`.
 - Inject `AsyncSession` in endpoints with `Depends(get_db)` from `app/api/deps.py`.
 
 Example insert (in a service):

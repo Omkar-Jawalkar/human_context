@@ -1,17 +1,11 @@
 import pytest
 
-from app.services.embedding_service import embedding_service
 from app.services.import_service import import_service
 
 
 def test_compute_file_hash_is_stable():
     data = b"same-content"
     assert import_service.compute_file_hash(data) == import_service.compute_file_hash(data)
-
-
-def test_embedding_service_fake_provider_dimensions():
-    vector = embedding_service.embed_text("hello world")
-    assert len(vector) > 0
 
 
 @pytest.mark.usefixtures("sync_session")

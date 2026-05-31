@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.sync_database import get_sync_session
 from app.models.conversation import Conversation
 from app.models.embedding import EmbeddingRecord
@@ -30,19 +31,35 @@ class EmbeddingPipelineService:
                 select(Message).where(Message.conversation_id.in_(conversation_ids))
             ).all()
 
-            for message in messages:
-                namespace = f"message:{message.id}"
-                existing = session.scalar(
-                    select(EmbeddingRecord).where(EmbeddingRecord.namespace == namespace)
-                )
-                if existing is not None:
-                    stats["embeddings_skipped"] += 1
-                    continue
+            if not messages:
+                return stats
 
-                embedding = embedding_service.embed_text(message.content)
-                session.add(
+            namespaces = [f"message:{message.id}" for message in messages]
+            existing_namespaces = set(
+                session.scalars(
+                    select(EmbeddingRecord.namespace).where(
+                        EmbeddingRecord.namespace.in_(namespaces)
+                    )
+                ).all()
+            )
+
+            pending_messages = [
+                message
+                for message in messages
+                if f"message:{message.id}" not in existing_namespaces
+            ]
+            stats["embeddings_skipped"] = len(messages) - len(pending_messages)
+
+            if pending_messages:
+                contents = [message.content for message in pending_messages]
+                if settings.embedding_provider == "openai":
+                    embeddings = embedding_service.embed_texts_parallel(contents)
+                else:
+                    embeddings = embedding_service.embed_texts(contents)
+
+                records = [
                     EmbeddingRecord(
-                        namespace=namespace,
+                        namespace=f"message:{message.id}",
                         content=message.content,
                         metadata_={
                             "message_id": str(message.id),
@@ -52,8 +69,12 @@ class EmbeddingPipelineService:
                         },
                         embedding=embedding,
                     )
-                )
-                stats["embeddings_created"] += 1
+                    for message, embedding in zip(
+                        pending_messages, embeddings, strict=True
+                    )
+                ]
+                session.add_all(records)
+                stats["embeddings_created"] = len(records)
 
             merged_stats = {**job.stats, **stats}
             job.stats = merged_stats
