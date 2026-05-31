@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     embedding_max_parallel_batches: int = 4
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_chat_model: str = "gpt-4.1"
 
 
 settings = Settings()
