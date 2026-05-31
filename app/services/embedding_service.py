@@ -21,7 +21,9 @@ class EmbeddingService:
             return []
         if settings.embedding_provider == "openai":
             return self._embed_openai_batch(texts)
-        return [self._embed_fake(text) for text in texts]
+        # commented out fake embedding for now, until we have a way to test it
+        # return [self._embed_fake(text) for text in texts]
+        return []
 
     def embed_texts_parallel(
         self,
