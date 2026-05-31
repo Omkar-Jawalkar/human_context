@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     default_user_email: str = "default@localhost"
 
     embedding_provider: str = "fake"
+    embedding_batch_size: int = 64
+    embedding_max_parallel_batches: int = 4
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
 

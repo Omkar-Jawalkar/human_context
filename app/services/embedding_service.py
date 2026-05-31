@@ -1,19 +1,69 @@
 import hashlib
 import math
 import struct
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
 
 from app.core.config import settings
 
 
+def _chunked(items: list[str], size: int) -> list[list[str]]:
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
 class EmbeddingService:
     def embed_text(self, text: str) -> list[float]:
-        if settings.embedding_provider == "openai":
-            return self._embed_openai(text)
-        return self._embed_fake(text)
+        return self.embed_texts([text])[0]
 
-    def _embed_openai(self, text: str) -> list[float]:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        if settings.embedding_provider == "openai":
+            return self._embed_openai_batch(texts)
+        return [self._embed_fake(text) for text in texts]
+
+    def embed_texts_parallel(
+        self,
+        texts: list[str],
+        *,
+        batch_size: int | None = None,
+        max_workers: int | None = None,
+    ) -> list[list[float]]:
+        if not texts:
+            return []
+
+        size = batch_size if batch_size is not None else settings.embedding_batch_size
+        workers = (
+            max_workers
+            if max_workers is not None
+            else settings.embedding_max_parallel_batches
+        )
+
+        chunks = _chunked(texts, size)
+        if len(chunks) == 1 or workers <= 1:
+            results: list[list[float]] = []
+            for chunk in chunks:
+                results.extend(self.embed_texts(chunk))
+            return results
+
+        ordered: list[list[list[float]] | None] = [None] * len(chunks)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(self.embed_texts, chunk): index
+                for index, chunk in enumerate(chunks)
+            }
+            for future in as_completed(futures):
+                index = futures[future]
+                ordered[index] = future.result()
+
+        results = []
+        for chunk_embeddings in ordered:
+            assert chunk_embeddings is not None
+            results.extend(chunk_embeddings)
+        return results
+
+    def _embed_openai_batch(self, texts: list[str]) -> list[list[float]]:
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required when embedding_provider=openai")
 
@@ -25,18 +75,27 @@ class EmbeddingService:
             },
             json={
                 "model": settings.openai_embedding_model,
-                "input": text,
+                "input": texts,
             },
             timeout=60.0,
         )
         response.raise_for_status()
         payload = response.json()
-        embedding = payload["data"][0]["embedding"]
-        if len(embedding) != settings.embedding_dimensions:
+        items = sorted(payload["data"], key=lambda item: item["index"])
+        if len(items) != len(texts):
             raise ValueError(
-                f"Expected {settings.embedding_dimensions} dimensions, got {len(embedding)}"
+                f"Expected {len(texts)} embeddings, got {len(items)}"
             )
-        return embedding
+
+        embeddings: list[list[float]] = []
+        for item in items:
+            embedding = item["embedding"]
+            if len(embedding) != settings.embedding_dimensions:
+                raise ValueError(
+                    f"Expected {settings.embedding_dimensions} dimensions, got {len(embedding)}"
+                )
+            embeddings.append(embedding)
+        return embeddings
 
     def _embed_fake(self, text: str) -> list[float]:
         digest = hashlib.sha256(text.encode("utf-8")).digest()
