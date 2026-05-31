@@ -1,4 +1,4 @@
-.PHONY: setup install dev worker redis postgres migrate test lint
+.PHONY: setup install dev worker flower redis postgres migrate test lint
 
 setup:
 	bash scripts/setup.sh
@@ -11,6 +11,9 @@ dev:
 
 worker:
 	celery -A app.workers.celery_app worker --loglevel=info
+
+flower:
+	celery -A app.workers.celery_app flower --port=5555
 
 redis:
 	docker compose up -d redis

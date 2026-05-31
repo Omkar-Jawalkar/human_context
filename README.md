@@ -13,6 +13,7 @@ Production-oriented FastAPI template with layered architecture and Celery backgr
 | ORM | SQLAlchemy 2 (async) + Alembic |
 | Queue / broker | Redis |
 | Workers | Celery |
+| Monitoring | Flower (dev dashboard) |
 
 ## Project layout
 
@@ -81,6 +82,17 @@ In a second terminal:
 source .venv/bin/activate
 make worker
 ```
+
+### 6. Celery dashboard (Flower)
+
+In a third terminal (requires Redis and a running worker for live task data):
+
+```bash
+source .venv/bin/activate
+make flower
+```
+
+Open [http://localhost:5555](http://localhost:5555) to monitor workers, active tasks, task history, and queues.
 
 ## API usage
 
@@ -163,4 +175,4 @@ make lint    # ruff
 - Set `DEBUG=false` and configure real `DATABASE_URL` and Redis URLs via environment variables.
 - Run multiple worker processes: `celery -A app.workers.celery_app worker --concurrency=4`.
 - Use a process manager (systemd, supervisord) or container orchestration for API + workers.
-- Consider [Flower](https://flower.readthedocs.io/) for Celery monitoring in staging/production.
+- Run [Flower](https://flower.readthedocs.io/) for Celery monitoring: `make flower` (set `FLOWER_BASIC_AUTH` in production).

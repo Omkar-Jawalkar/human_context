@@ -25,5 +25,12 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
 
+    upload_dir: str = "/tmp/human_context_uploads"
+    default_user_email: str = "default@localhost"
+
+    embedding_provider: str = "fake"
+    openai_api_key: str | None = None
+    openai_embedding_model: str = "text-embedding-3-small"
+
 
 settings = Settings()

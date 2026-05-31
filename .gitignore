@@ -16,9 +16,10 @@ build/
 .coverage
 htmlcov/
 
-# Environment
+# Environment (never commit real secrets)
 .env
-.env.local
+.env.*
+!.env.example
 
 # IDE
 .idea/

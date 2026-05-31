@@ -7,7 +7,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
-from app.models import Base, EmbeddingRecord  # noqa: F401 — register models with metadata
+from app.models import (  # noqa: F401 — register models with metadata
+    Base,
+    Conversation,
+    EmbeddingRecord,
+    ImportJob,
+    Message,
+    Organization,
+    User,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
