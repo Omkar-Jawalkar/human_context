@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,8 +22,11 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("organizations.id"), index=True, nullable=False
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id"), index=True, nullable=True
+    )
+    super_admin: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -38,6 +41,6 @@ class User(Base):
         nullable=False,
     )
 
-    organization: Mapped[Organization] = relationship(back_populates="users")
+    organization: Mapped[Organization | None] = relationship(back_populates="users")
     conversations: Mapped[list[Conversation]] = relationship(back_populates="user")
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="user")

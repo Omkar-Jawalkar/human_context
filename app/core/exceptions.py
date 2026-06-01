@@ -62,3 +62,9 @@ class AuthorizationError(AppError):
     """Authenticated but not permitted to access the resource."""
 
     code = "authorization_error"
+
+
+class ConflictError(AppError):
+    """Request conflicts with current resource state."""
+
+    code = "conflict_error"
