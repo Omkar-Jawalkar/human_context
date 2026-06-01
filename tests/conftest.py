@@ -1,10 +1,12 @@
 import uuid
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.main import app
 from app.core.security import create_access_token, hash_password
 from app.models.enums import ImportJobStatus, ImportSource
 from app.models.import_job import ImportJob
@@ -13,6 +15,18 @@ from app.models.user import User
 from app.services.claude_parser import parse_conversation
 
 TEST_JWT_SECRET = "test-jwt-secret-key-at-least-32-bytes"
+
+
+@pytest.fixture
+def api_client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture(autouse=True)
+def _clear_dependency_overrides():
+    yield
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")
@@ -108,6 +122,80 @@ def override_current_user(test_user_with_password):
     from app.main import app
 
     user, _password = test_user_with_password
+
+    async def _override() -> User:
+        return user
+
+    app.dependency_overrides[get_current_user] = _override
+    yield user
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def test_super_admin_with_password(sync_session):
+    password = "super-secret123"
+    user = User(
+        organization_id=None,
+        email=f"super-{uuid.uuid4()}@example.com",
+        name="Super Admin",
+        password_hash=hash_password(password),
+        super_admin=True,
+    )
+    sync_session.add(user)
+    sync_session.commit()
+    return user, password
+
+
+@pytest.fixture
+def super_admin_auth_headers(test_super_admin_with_password, jwt_settings):
+    user, _password = test_super_admin_with_password
+    token = create_access_token(user.id)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def override_super_admin_user(test_super_admin_with_password):
+    from app.api.deps import get_current_user
+    from app.main import app
+
+    user, _password = test_super_admin_with_password
+
+    async def _override() -> User:
+        return user
+
+    app.dependency_overrides[get_current_user] = _override
+    yield user
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def test_tenant_user_no_org(sync_session):
+    password = "tenant-secret123"
+    user = User(
+        organization_id=None,
+        email=f"tenant-{uuid.uuid4()}@example.com",
+        name="Tenant No Org",
+        password_hash=hash_password(password),
+        super_admin=False,
+    )
+    sync_session.add(user)
+    sync_session.commit()
+    return user, password
+
+
+@pytest.fixture
+def tenant_no_org_auth_headers(test_tenant_user_no_org, jwt_settings):
+    user, _password = test_tenant_user_no_org
+    token = create_access_token(user.id)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def override_tenant_no_org_user(test_tenant_user_no_org):
+    from app.api.deps import get_current_user
+    from app.main import app
+
+    user, _password = test_tenant_user_no_org
 
     async def _override() -> User:
         return user

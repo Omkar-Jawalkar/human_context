@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
+from app.core.exceptions import AuthorizationError
 from app.models.enums import ImportJobStatus, ImportSource
 from app.models.import_job import ImportJob
 from app.models.user import User
@@ -57,6 +58,9 @@ async def upload_claude_export(
         user = await db.get(User, user_id)
         if user is None:
             raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+
+    if user.organization_id is None:
+        raise AuthorizationError("User must join an organization before importing")
 
     existing = await import_api_service.get_existing_import_job(db, user.id, file_hash)
     if existing is not None:

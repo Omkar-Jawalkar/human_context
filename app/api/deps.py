@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db as _get_db
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AuthenticationError, AuthorizationError
 from app.core.security import decode_access_token
 from app.models.user import User
 
@@ -35,3 +35,19 @@ async def get_current_user(
     if user is None:
         raise AuthenticationError("User not found")
     return user
+
+
+async def require_super_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if not current_user.super_admin:
+        raise AuthorizationError("Super admin access required")
+    return current_user
+
+
+async def require_tenant_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.super_admin:
+        raise AuthorizationError("This action is not available for super admins")
+    return current_user

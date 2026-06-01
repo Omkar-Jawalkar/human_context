@@ -6,6 +6,7 @@ from app.core.exceptions import (
     AuthenticationError,
     AuthorizationError,
     ConfigurationError,
+    ConflictError,
     EmbeddingError,
     LLMError,
     OpenAIAPIError,
@@ -18,6 +19,8 @@ def _status_code_for_error(exc: AppError) -> int:
         return 401
     if isinstance(exc, AuthorizationError):
         return 403
+    if isinstance(exc, ConflictError):
+        return 409
     if isinstance(exc, ConfigurationError):
         return 503
     if isinstance(exc, OpenAIAPIError):
