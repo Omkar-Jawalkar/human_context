@@ -96,11 +96,36 @@ Open [http://localhost:5555](http://localhost:5555) to monitor workers, active t
 
 ## API usage
 
+All routes under `/api/v1` require JWT authentication except `/api/v1/health` and `/api/v1/auth/login`. Include the token on protected requests:
+
+```bash
+Authorization: Bearer <access_token>
+```
+
+**Log in** (email + password):
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "your-password"}'
+```
+
+Set a user's password in development (after creating the user in the DB):
+
+```python
+from app.core.security import hash_password
+# UPDATE users SET password_hash = '<hash>' WHERE email = '...'
+hash_password("your-password")
+```
+
+Configure `JWT_SECRET_KEY` in `.env` (see `.env.example`).
+
 **Enqueue a background task:**
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/tasks \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
   -d '{"message": "hello from queue"}'
 ```
 
