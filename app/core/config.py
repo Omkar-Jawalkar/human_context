@@ -45,5 +45,14 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+    @property
+    def is_development(self) -> bool:
+        return self.app_env == "development"
+
 
 settings = Settings()

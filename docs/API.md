@@ -27,9 +27,9 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "user@example.com",
-  "name": "Display Name",
-  "password": "your-password"
+"email": "user@example.com",
+"name": "Display Name",
+"password": "your-password"
 }
 ```
 
@@ -37,8 +37,8 @@ Content-Type: application/json
 
 ```json
 {
-  "access_token": "<jwt>",
-  "token_type": "bearer"
+"access_token": "<jwt>",
+"token_type": "bearer"
 }
 ```
 
@@ -57,8 +57,8 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "user@example.com",
-  "password": "your-password"
+"email": "user@example.com",
+"password": "your-password"
 }
 ```
 
@@ -66,8 +66,8 @@ Content-Type: application/json
 
 ```json
 {
-  "access_token": "<jwt>",
-  "token_type": "bearer"
+"access_token": "<jwt>",
+"token_type": "bearer"
 }
 ```
 
@@ -81,8 +81,8 @@ Most application errors:
 
 ```json
 {
-  "detail": "Human-readable message",
-  "code": "authentication_error"
+"detail": "Human-readable message",
+"code": "authentication_error"
 }
 ```
 
@@ -132,9 +132,9 @@ Most application errors:
 
 ```json
 {
-  "name": "string",
-  "email": "user@example.com",
-  "password": "new-password"
+"name": "string",
+"email": "user@example.com",
+"password": "new-password"
 }
 ```
 
@@ -146,7 +146,7 @@ Most application errors:
 
 ```json
 {
-  "organization_id": "uuid"
+"organization_id": "uuid"
 }
 ```
 
@@ -167,7 +167,7 @@ Most application errors:
 
 ```json
 {
-  "items": [ /* UserResponse[] */ ]
+"items": [ /* UserResponse[] */ ]
 }
 ```
 
@@ -179,10 +179,10 @@ Use **`POST /auth/register`** for self-service signup (no JWT).
 
 ```json
 {
-  "email": "user@example.com",
-  "name": "Display Name",
-  "password": "optional",
-  "organization_id": "uuid or omit"
+"email": "user@example.com",
+"name": "Display Name",
+"password": "optional",
+"organization_id": "uuid or omit"
 }
 ```
 
@@ -200,10 +200,10 @@ Use **`POST /auth/register`** for self-service signup (no JWT).
 
 ```json
 {
-  "name": "string",
-  "email": "user@example.com",
-  "password": "string",
-  "organization_id": "uuid or null to unassign"
+"name": "string",
+"email": "user@example.com",
+"password": "string",
+"organization_id": "uuid or null to unassign"
 }
 ```
 
@@ -229,7 +229,7 @@ No body.
 
 ```json
 {
-  "items": [ /* OrganizationResponse[] */ ]
+"items": [ /* OrganizationResponse[] */ ]
 }
 ```
 
@@ -239,8 +239,8 @@ No body.
 
 ```json
 {
-  "name": "Acme Inc",
-  "meta": {}
+"name": "Acme Inc",
+"meta": {}
 }
 ```
 
@@ -256,8 +256,8 @@ No body.
 
 ```json
 {
-  "name": "New Name",
-  "meta": { "tier": "pro" }
+"name": "New Name",
+"meta": { "tier": "pro" }
 }
 ```
 
@@ -310,8 +310,8 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "query": "What did we discuss about X?",
-  "user_id": "uuid"
+"query": "What did we discuss about X?",
+"user_id": "uuid"
 }
 ```
 
@@ -321,17 +321,17 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "answer": "string",
-  "sources": [
-    {
-      "content": "string | null",
-      "distance": 0.12,
-      "message_id": "string | null",
-      "conversation_id": "string | null",
-      "sender": "string | null",
-      "import_job_id": "string | null"
-    }
-  ]
+"answer": "string",
+"sources": [
+  {
+    "content": "string | null",
+    "distance": 0.12,
+    "message_id": "string | null",
+    "conversation_id": "string | null",
+    "sender": "string | null",
+    "import_job_id": "string | null"
+  }
+]
 }
 ```
 
@@ -352,7 +352,7 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "message": "string (1-500 chars)"
+"message": "string (1-500 chars)"
 }
 ```
 
@@ -360,8 +360,8 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "task_id": "string",
-  "status": "queued"
+"task_id": "string",
+"status": "queued"
 }
 ```
 
@@ -371,10 +371,10 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "task_id": "string",
-  "status": "PENDING | STARTED | SUCCESS | FAILURE | RETRY | REVOKED",
-  "result": "string | null",
-  "error": "string | null"
+"task_id": "string",
+"status": "PENDING | STARTED | SUCCESS | FAILURE | RETRY | REVOKED",
+"result": "string | null",
+"error": "string | null"
 }
 ```
 
@@ -386,13 +386,13 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "id": "uuid",
-  "organization_id": "uuid | null",
-  "email": "user@example.com",
-  "name": "string",
-  "super_admin": false,
-  "created_at": "ISO-8601 datetime",
-  "updated_at": "ISO-8601 datetime"
+"id": "uuid",
+"organization_id": "uuid | null",
+"email": "user@example.com",
+"name": "string",
+"super_admin": false,
+"created_at": "ISO-8601 datetime",
+"updated_at": "ISO-8601 datetime"
 }
 ```
 
@@ -400,11 +400,11 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "id": "uuid",
-  "name": "string",
-  "meta": {},
-  "created_at": "ISO-8601 datetime",
-  "updated_at": "ISO-8601 datetime"
+"id": "uuid",
+"name": "string",
+"meta": {},
+"created_at": "ISO-8601 datetime",
+"updated_at": "ISO-8601 datetime"
 }
 ```
 
@@ -412,27 +412,27 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 
 ```json
 {
-  "id": "uuid",
-  "user_id": "uuid",
-  "organization_id": "uuid",
-  "source": "claude",
-  "status": "pending | processing | completed | failed",
-  "file_name": "string",
-  "file_hash": "string",
-  "stats": {
-    "conversations_count": 0,
-    "messages_created": 0,
-    "messages_updated": 0,
-    "conversations_skipped": 0,
-    "embeddings_created": 0,
-    "embeddings_skipped": 0
-  },
-  "error_message": "string | null",
-  "started_at": "ISO-8601 | null",
-  "completed_at": "ISO-8601 | null",
-  "created_at": "ISO-8601",
-  "celery_task_id": "string | null",
-  "duplicate": false
+"id": "uuid",
+"user_id": "uuid",
+"organization_id": "uuid",
+"source": "claude",
+"status": "pending | processing | completed | failed",
+"file_name": "string",
+"file_hash": "string",
+"stats": {
+  "conversations_count": 0,
+  "messages_created": 0,
+  "messages_updated": 0,
+  "conversations_skipped": 0,
+  "embeddings_created": 0,
+  "embeddings_skipped": 0
+},
+"error_message": "string | null",
+"started_at": "ISO-8601 | null",
+"completed_at": "ISO-8601 | null",
+"created_at": "ISO-8601",
+"celery_task_id": "string | null",
+"duplicate": false
 }
 ```
 

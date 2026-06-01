@@ -7,7 +7,7 @@ install:
 	pip install -e ".[dev]"
 
 dev:
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 worker:
 	cd "$(CURDIR)" && celery -A app.workers.celery_app worker --loglevel=info

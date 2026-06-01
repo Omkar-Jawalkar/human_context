@@ -13,18 +13,25 @@ if [ -z "$PYTHON" ]; then
 fi
 
 if [ ! -d ".venv" ]; then
-  "$PYTHON" -m venv .venv
+  if command -v uv >/dev/null 2>&1; then
+    uv venv --python 3.12 .venv
+  else
+    "$PYTHON" -m venv .venv
+  fi
 fi
 
-# shellcheck disable=SC1091
-source .venv/bin/activate
+VENV_PYTHON=".venv/bin/python"
 
-pip install -U pip
-pip install -e ".[dev]"
+if command -v uv >/dev/null 2>&1; then
+  uv sync --extra dev
+else
+  "$VENV_PYTHON" -m pip install -U pip
+  "$VENV_PYTHON" -m pip install -e ".[dev]"
+fi
 
 if [ ! -f ".env" ]; then
   cp .env.example .env
   echo "Created .env from .env.example"
 fi
 
-echo "Setup complete (Python: $(python --version)). Activate with: source .venv/bin/activate"
+echo "Setup complete (Python: $($PYTHON --version)). Activate with: source .venv/bin/activate"
