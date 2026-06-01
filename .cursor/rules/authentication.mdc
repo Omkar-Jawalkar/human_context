@@ -1,0 +1,34 @@
+---
+description: JWT authentication and protected route conventions
+globs: app/api/**/*.py
+alwaysApply: false
+---
+
+# Authentication
+
+- Mount new business endpoints on `protected_router` in `app/api/v1/router.py` — not on `api_router` unless intentionally public.
+- Public routes: health checks and `POST /api/v1/auth/login` (and future register, if added).
+- **Caller vs target user:** JWT / `current_user` = authenticated caller; `user_id` in body or form = target user whose data is scoped (query search, import ownership). Do not conflate them.
+- Do not use request `user_id` as proof of identity — identity comes only from JWT.
+- Use `current_user: User = Depends(get_current_user)` in handlers only when caller identity is needed (audit, future per-caller authorization).
+- Raise `AuthenticationError` / `AuthorizationError` from services; let `AppError` handlers map to 401/403 — do not catch in endpoints except 404 translations.
+- Add tests with the `auth_headers` fixture for any new protected endpoint.
+
+```python
+# Good — protected route on protected_router; target user in body
+@router.post("")
+async def query_context(
+    body: QueryRequest,
+    db: AsyncSession = Depends(get_db),
+) -> QueryResponse:
+    user = await db.get(User, body.user_id)  # target user for search scope
+    ...
+
+# Bad — mounting business logic on api_router without JWT
+api_router.include_router(my_feature.router, prefix="/my-feature")
+
+# Bad — treating body user_id as the authenticated caller
+async def query_context(body: QueryRequest, db: AsyncSession = Depends(get_db)):
+    result = await query_service.answer_query(db, body.query, body.user_id)
+    # missing JWT gate; body.user_id is not authentication
+```

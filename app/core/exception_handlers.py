@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 
 from app.core.exceptions import (
     AppError,
+    AuthenticationError,
+    AuthorizationError,
     ConfigurationError,
     EmbeddingError,
     LLMError,
@@ -12,6 +14,10 @@ from app.core.exceptions import (
 
 
 def _status_code_for_error(exc: AppError) -> int:
+    if isinstance(exc, AuthenticationError):
+        return 401
+    if isinstance(exc, AuthorizationError):
+        return 403
     if isinstance(exc, ConfigurationError):
         return 503
     if isinstance(exc, OpenAIAPIError):

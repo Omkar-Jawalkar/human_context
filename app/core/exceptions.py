@@ -50,3 +50,15 @@ class SearchError(AppError):
     """Vector search failure."""
 
     code = "search_error"
+
+
+class AuthenticationError(AppError):
+    """Invalid or missing credentials."""
+
+    code = "authentication_error"
+
+
+class AuthorizationError(AppError):
+    """Authenticated but not permitted to access the resource."""
+
+    code = "authorization_error"
