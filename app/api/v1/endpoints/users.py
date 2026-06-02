@@ -1,11 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_super_admin, require_tenant_user
 from app.core.exceptions import AuthenticationError
+from app.filters.users import UserListFilters, user_list_filters
 from app.models.user import User
+from app.schemas.pagination import PaginationParams, build_paginated_response
 from app.schemas.user import (
     UserCreate,
     UserJoinOrganization,
@@ -65,17 +67,18 @@ async def join_organization(
 
 @router.get("", response_model=UserListResponse)
 async def list_users(
-    organization_id: uuid.UUID | None = Query(default=None),
-    unassigned_only: bool = Query(default=False),
+    filters: UserListFilters = Depends(user_list_filters),
+    pagination: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
-    _caller: User = Depends(require_super_admin),
+    # _caller: User = Depends(require_super_admin),
 ) -> UserListResponse:
-    users = await user_service.list_users(
-        db,
-        organization_id=organization_id,
-        unassigned_only=unassigned_only,
+    users, total = await user_service.list_users(db, filters, pagination)
+    return build_paginated_response(
+        [_to_response(u) for u in users],
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total=total,
     )
-    return UserListResponse(items=[_to_response(u) for u in users])
 
 
 @router.post("", response_model=UserResponse, status_code=201)

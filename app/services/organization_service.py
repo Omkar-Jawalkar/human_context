@@ -7,10 +7,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthorizationError, ConflictError
+from app.core.listing import paginate
+from app.filters.organizations import OrganizationListFilters, apply_organization_filters
 from app.models.import_job import ImportJob
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.organization import OrganizationCreate, OrganizationUpdate
+from app.schemas.pagination import PaginationParams
 
 
 class OrganizationService:
@@ -18,10 +21,20 @@ class OrganizationService:
         if not caller.super_admin:
             raise AuthorizationError("Super admin access required")
 
-    async def list_organizations(self, session: AsyncSession) -> list[Organization]:
+    async def list_organizations(
+        self,
+        session: AsyncSession,
+        filters: OrganizationListFilters,
+        pagination: PaginationParams,
+    ) -> tuple[list[Organization], int]:
         stmt = select(Organization).order_by(Organization.created_at)
-        result = await session.scalars(stmt)
-        return list(result.all())
+        stmt = apply_organization_filters(stmt, filters)
+        return await paginate(
+            session,
+            stmt,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def get_organization(
         self, session: AsyncSession, organization_id: uuid.UUID

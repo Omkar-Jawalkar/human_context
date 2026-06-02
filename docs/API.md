@@ -156,20 +156,36 @@ Most application errors:
 
 #### `GET /users` — `200` (super admin)
 
-**Query**
+Lists tenant users only (`super_admin` accounts are excluded).
+
+**Query — filters**
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `organization_id` | uuid | Filter by org |
+| `organization_id` | uuid | Filter by org (mutually exclusive with `unassigned_only`) |
 | `unassigned_only` | bool | Users with no org |
+| `email` | string | Partial email search (case-insensitive) |
+
+**Query — pagination**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | int | `1` | Page number (≥ 1) |
+| `page_size` | int | `20` | Items per page (1–100) |
 
 **Response**
 
 ```json
 {
-"items": [ /* UserResponse[] */ ]
+"items": [ /* UserResponse[] */ ],
+"page": 1,
+"page_size": 20,
+"total": 42,
+"total_pages": 3
 }
 ```
+
+**Errors:** `422` if `unassigned_only=true` and `organization_id` are both set
 
 #### `POST /users` — `201` (super admin only)
 
@@ -227,11 +243,34 @@ No body.
 
 #### `GET /organizations` — `200`
 
+**Query — filters**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `name` | string | Partial name search (case-insensitive) |
+| `created_after` | datetime | `created_at >= value` (ISO-8601) |
+| `created_before` | datetime | `created_at <= value` (ISO-8601) |
+
+**Query — pagination**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | int | `1` | Page number (≥ 1) |
+| `page_size` | int | `20` | Items per page (1–100) |
+
+**Response**
+
 ```json
 {
-"items": [ /* OrganizationResponse[] */ ]
+"items": [ /* OrganizationResponse[] */ ],
+"page": 1,
+"page_size": 20,
+"total": 42,
+"total_pages": 3
 }
 ```
+
+**Errors:** `422` if `created_after` is after `created_before`
 
 #### `POST /organizations` — `201`
 

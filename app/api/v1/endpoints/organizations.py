@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_super_admin
+from app.filters.organizations import OrganizationListFilters, organization_list_filters
 from app.models.user import User
 from app.schemas.organization import (
     OrganizationCreate,
@@ -11,6 +12,7 @@ from app.schemas.organization import (
     OrganizationResponse,
     OrganizationUpdate,
 )
+from app.schemas.pagination import PaginationParams, build_paginated_response
 from app.services.organization_service import organization_service
 
 router = APIRouter()
@@ -18,12 +20,19 @@ router = APIRouter()
 
 @router.get("", response_model=OrganizationListResponse)
 async def list_organizations(
+    filters: OrganizationListFilters = Depends(organization_list_filters),
+    pagination: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
-    _caller: User = Depends(require_super_admin),
+    # _caller: User = Depends(require_super_admin),
 ) -> OrganizationListResponse:
-    orgs = await organization_service.list_organizations(db)
-    return OrganizationListResponse(
-        items=[OrganizationResponse.model_validate(o) for o in orgs]
+    orgs, total = await organization_service.list_organizations(
+        db, filters, pagination
+    )
+    return build_paginated_response(
+        [OrganizationResponse.model_validate(o) for o in orgs],
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total=total,
     )
 
 

@@ -26,5 +26,6 @@ class OrganizationUpdate(BaseModel):
     meta: dict | None = None
 
 
-class OrganizationListResponse(BaseModel):
-    items: list[OrganizationResponse]
+from app.schemas.pagination import PaginatedResponse
+
+OrganizationListResponse = PaginatedResponse[OrganizationResponse]
