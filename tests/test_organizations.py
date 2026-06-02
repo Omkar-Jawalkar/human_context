@@ -34,9 +34,17 @@ def test_super_admin_organization_crud(
     assert org["name"] == "CRUD Org"
     assert org["meta"] == {"tier": "test"}
 
-    list_resp = api_client.get("/api/v1/organizations", headers=super_admin_auth_headers)
+    list_resp = api_client.get(
+        "/api/v1/organizations",
+        params={"name": "CRUD Org"},
+        headers=super_admin_auth_headers,
+    )
     assert list_resp.status_code == 200
-    assert any(item["id"] == org_id for item in list_resp.json()["items"])
+    list_body = list_resp.json()
+    assert list_body["page"] == 1
+    assert list_body["page_size"] == 20
+    assert list_body["total"] >= 1
+    assert any(item["id"] == org_id for item in list_body["items"])
 
     get_resp = api_client.get(
         f"/api/v1/organizations/{org_id}",
@@ -81,3 +89,74 @@ def test_delete_organization_with_users_returns_409(
     )
     assert delete_resp.status_code == 409
     assert delete_resp.json()["code"] == "conflict_error"
+
+
+def test_list_organizations_default_pagination(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    response = api_client.get("/api/v1/organizations", headers=super_admin_auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["page_size"] == 20
+    assert "total" in body
+    assert "total_pages" in body
+    assert isinstance(body["items"], list)
+
+
+def test_list_organizations_name_filter(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    unique_name = f"FilterOrg-{uuid.uuid4()}"
+    create_resp = api_client.post(
+        "/api/v1/organizations",
+        json={"name": unique_name},
+        headers=super_admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+
+    list_resp = api_client.get(
+        "/api/v1/organizations",
+        params={"name": "FilterOrg"},
+        headers=super_admin_auth_headers,
+    )
+    assert list_resp.status_code == 200
+    names = [item["name"] for item in list_resp.json()["items"]]
+    assert unique_name in names
+
+
+def test_list_organizations_created_range_filter(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    create_resp = api_client.post(
+        "/api/v1/organizations",
+        json={"name": f"RangeOrg-{uuid.uuid4()}"},
+        headers=super_admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+    created_at = create_resp.json()["created_at"]
+
+    list_resp = api_client.get(
+        "/api/v1/organizations",
+        params={
+            "created_after": created_at,
+            "created_before": created_at,
+        },
+        headers=super_admin_auth_headers,
+    )
+    assert list_resp.status_code == 200
+    assert list_resp.json()["total"] >= 1
+
+
+def test_list_organizations_invalid_date_range_returns_422(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    response = api_client.get(
+        "/api/v1/organizations",
+        params={
+            "created_after": "2026-06-02T12:00:00Z",
+            "created_before": "2026-06-01T12:00:00Z",
+        },
+        headers=super_admin_auth_headers,
+    )
+    assert response.status_code == 422

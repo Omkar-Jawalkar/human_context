@@ -173,11 +173,13 @@ def test_super_admin_list_unassigned_users(
     )
     list_resp = api_client.get(
         "/api/v1/users",
-        params={"unassigned_only": True},
+        params={"unassigned_only": True, "email": email.split("@")[0]},
         headers=super_admin_auth_headers,
     )
     assert list_resp.status_code == 200
-    emails = [u["email"] for u in list_resp.json()["items"]]
+    list_body = list_resp.json()
+    assert list_body["page"] == 1
+    emails = [u["email"] for u in list_body["items"]]
     assert email in emails
 
 
@@ -248,3 +250,50 @@ def test_super_admin_delete_user(
         headers=super_admin_auth_headers,
     )
     assert get_resp.status_code == 404
+
+
+def test_list_users_default_pagination(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    response = api_client.get(
+        "/api/v1/users",
+        params={"email": "example.com"},
+        headers=super_admin_auth_headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["page_size"] == 20
+    assert "total" in body
+    assert "total_pages" in body
+    assert isinstance(body["items"], list)
+
+
+def test_list_users_email_filter(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    email = f"email-filter-{uuid.uuid4()}@example.com"
+    api_client.post(
+        "/api/v1/users",
+        json={"email": email, "name": "Email Filter User"},
+        headers=super_admin_auth_headers,
+    )
+    list_resp = api_client.get(
+        "/api/v1/users",
+        params={"email": "email-filter"},
+        headers=super_admin_auth_headers,
+    )
+    assert list_resp.status_code == 200
+    emails = [u["email"] for u in list_resp.json()["items"]]
+    assert email in emails
+
+
+def test_list_users_unassigned_and_organization_id_returns_422(
+    jwt_settings, super_admin_auth_headers, override_super_admin_user, api_client
+):
+    response = api_client.get(
+        "/api/v1/users",
+        params={"unassigned_only": True, "organization_id": str(uuid.uuid4())},
+        headers=super_admin_auth_headers,
+    )
+    assert response.status_code == 422

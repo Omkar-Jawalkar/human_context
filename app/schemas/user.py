@@ -48,5 +48,6 @@ class UserUpdate(BaseModel):
     organization_id: uuid.UUID | None = None
 
 
-class UserListResponse(BaseModel):
-    items: list[UserResponse]
+from app.schemas.pagination import PaginatedResponse
+
+UserListResponse = PaginatedResponse[UserResponse]

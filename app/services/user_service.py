@@ -7,9 +7,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthorizationError, ConflictError
+from app.core.listing import paginate
 from app.core.security import hash_password
+from app.filters.users import UserListFilters, apply_user_filters
 from app.models.organization import Organization
 from app.models.user import User
+from app.schemas.pagination import PaginationParams
 from app.schemas.user import UserCreate, UserRegister, UserSelfUpdate, UserUpdate
 
 
@@ -32,18 +35,17 @@ class UserService:
     async def list_users(
         self,
         session: AsyncSession,
-        *,
-        organization_id: uuid.UUID | None = None,
-        unassigned_only: bool = False,
-    ) -> list[User]:
-        stmt = select(User).where(User.super_admin.is_(False))
-        if unassigned_only:
-            stmt = stmt.where(User.organization_id.is_(None))
-        elif organization_id is not None:
-            stmt = stmt.where(User.organization_id == organization_id)
-        stmt = stmt.order_by(User.created_at)
-        result = await session.scalars(stmt)
-        return list(result.all())
+        filters: UserListFilters,
+        pagination: PaginationParams,
+    ) -> tuple[list[User], int]:
+        stmt = select(User).order_by(User.created_at)
+        stmt = apply_user_filters(stmt, filters)
+        return await paginate(
+            session,
+            stmt,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
     async def _email_exists(self, session: AsyncSession, email: str) -> bool:
         stmt = select(User.id).where(User.email == email)
