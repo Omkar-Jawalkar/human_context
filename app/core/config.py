@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/1"
 
     upload_dir: str = "/tmp/human_context_uploads"
-    default_user_email: str = "default@localhost"
+    default_user_email: str = "default@example.com"
 
     embedding_provider: str = "fake"
     embedding_batch_size: int = 64

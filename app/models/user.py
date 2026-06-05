@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.models.conversation import Conversation
     from app.models.import_job import ImportJob
     from app.models.organization import Organization
-
+    
 
 class User(Base):
     __tablename__ = "users"
