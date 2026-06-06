@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4.1"
 
+    chat_history_limit: int = 5
+    chat_rag_hit_limit: int = 5
+
     jwt_secret_key: str | None = None
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60

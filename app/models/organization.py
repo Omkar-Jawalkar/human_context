@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.chat_thread import ChatThread
     from app.models.conversation import Conversation
     from app.models.import_job import ImportJob
     from app.models.user import User
@@ -37,3 +38,4 @@ class Organization(Base):
     users: Mapped[list[User]] = relationship(back_populates="organization")
     conversations: Mapped[list[Conversation]] = relationship(back_populates="organization")
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="organization")
+    chat_threads: Mapped[list[ChatThread]] = relationship(back_populates="organization")

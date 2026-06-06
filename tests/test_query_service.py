@@ -5,7 +5,8 @@ import pytest
 
 from app.core.exceptions import ConfigurationError
 from app.models.embedding import EmbeddingRecord
-from app.services.llm_service import LLMService
+from app.models.user import User
+from app.services.llm_service import ContextUserProfile, LLMService
 from app.services.query_service import QueryService, query_service
 from app.services.search_service import SearchHit, SearchService
 
@@ -24,6 +25,15 @@ def _make_hit(content: str, distance: float, metadata: dict | None = None) -> Se
         embedding=[0.0] * 1536,
     )
     return SearchHit(record=record, distance=distance)
+
+
+def _make_target_user() -> User:
+    return User(
+        id=uuid.uuid4(),
+        email="target@example.com",
+        name="Target User",
+        organization_id=None,
+    )
 
 
 @patch("app.services.llm_service.settings")
@@ -60,44 +70,50 @@ def test_generate_answer_missing_api_key_raises(mock_settings):
 
 
 @pytest.mark.asyncio
+@patch("app.services.query_service.context_access_service")
 @patch("app.services.query_service.llm_service")
 @patch("app.services.query_service.search_service")
 async def test_answer_query_omits_sources_when_not_development(
     mock_search_service,
     mock_llm_service,
+    mock_context_access,
 ):
     hits = [_make_hit("context one", 0.1)]
     mock_search_service.search_similar_messages = AsyncMock(return_value=hits)
     mock_llm_service.generate_answer.return_value = "Generated answer"
+    mock_context_access.user_has_imported_conversations = AsyncMock(return_value=True)
 
     service = QueryService()
     db = AsyncMock()
-    user_id = uuid.uuid4()
+    target_user = _make_target_user()
 
     result = await service.answer_query(
         db,
         "What happened?",
-        user_id,
+        target_user,
         is_development=False,
     )
 
     assert result.answer == "Generated answer"
     assert result.sources is None
     mock_search_service.search_similar_messages.assert_awaited_once_with(
-        db, "What happened?", user_id, limit=5
+        db, "What happened?", target_user.id, limit=5
     )
     mock_llm_service.generate_answer.assert_called_once_with(
         "What happened?",
         ["context one"],
+        context_user=ContextUserProfile(id=target_user.id, name=target_user.name),
     )
 
 
 @pytest.mark.asyncio
+@patch("app.services.query_service.context_access_service")
 @patch("app.services.query_service.llm_service")
 @patch("app.services.query_service.search_service")
 async def test_answer_query_includes_sources_when_development(
     mock_search_service,
     mock_llm_service,
+    mock_context_access,
 ):
     metadata = {
         "message_id": "msg-1",
@@ -111,15 +127,16 @@ async def test_answer_query_includes_sources_when_development(
     ]
     mock_search_service.search_similar_messages = AsyncMock(return_value=hits)
     mock_llm_service.generate_answer.return_value = "Generated answer"
+    mock_context_access.user_has_imported_conversations = AsyncMock(return_value=True)
 
     service = QueryService()
     db = AsyncMock()
-    user_id = uuid.uuid4()
+    target_user = _make_target_user()
 
     result = await service.answer_query(
         db,
         "What happened?",
-        user_id,
+        target_user,
         is_development=True,
     )
 
@@ -132,6 +149,28 @@ async def test_answer_query_includes_sources_when_development(
     assert result.sources[0].conversation_id == "conv-1"
     assert result.sources[0].sender == "assistant"
     assert result.sources[0].import_job_id == "job-1"
+
+
+@pytest.mark.asyncio
+@patch("app.services.query_service.context_access_service")
+@patch("app.services.query_service.llm_service")
+@patch("app.services.query_service.search_service")
+async def test_answer_query_no_imports_returns_canned_reply(
+    mock_search_service,
+    mock_llm_service,
+    mock_context_access,
+):
+    mock_context_access.user_has_imported_conversations = AsyncMock(return_value=False)
+
+    service = QueryService()
+    db = AsyncMock()
+    target_user = _make_target_user()
+
+    result = await service.answer_query(db, "What happened?", target_user)
+
+    assert "has not imported any Claude conversations" in result.answer
+    mock_search_service.search_similar_messages.assert_not_called()
+    mock_llm_service.generate_answer.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -166,3 +205,31 @@ async def test_search_similar_messages_orders_by_distance(mock_embedding_service
 
 def test_query_service_singleton():
     assert query_service is not None
+
+
+@patch("app.services.llm_service.settings")
+def test_generate_chat_reply_builds_multi_turn_messages(mock_settings):
+    mock_settings.openai_api_key = "test-key"
+    mock_settings.openai_chat_model = "gpt-4.1"
+
+    service = LLMService()
+    context_user = ContextUserProfile(id=uuid.uuid4(), name="Bob")
+    with patch(
+        "app.services.llm_service.post_openai",
+        return_value={"choices": [{"message": {"content": "Sure thing."}}]},
+    ) as post_openai:
+        answer = service.generate_chat_reply(
+            thread_messages=[("user", "Earlier question"), ("assistant", "Earlier answer")],
+            user_message="Follow up",
+            context_user=context_user,
+            rag_contexts=["Imported snippet"],
+        )
+
+    assert answer == "Sure thing."
+    payload = post_openai.call_args.kwargs["json_body"]
+    roles = [message["role"] for message in payload["messages"]]
+    assert roles == ["system", "user", "assistant", "user", "assistant", "user"]
+    assert "Bob's imported Claude history" in payload["messages"][1]["content"]
+    assert "[1] Imported snippet" in payload["messages"][1]["content"]
+    assert "responding as Bob" in payload["messages"][0]["content"]
+    assert payload["messages"][-1]["content"] == "Follow up"
