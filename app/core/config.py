@@ -43,6 +43,8 @@ class Settings(BaseSettings):
 
     chat_history_limit: int = 5
     chat_rag_hit_limit: int = 5
+    chat_send_rate_limit: int = 20
+    chat_send_rate_limit_window_seconds: int = 21600
 
     jwt_secret_key: str | None = None
     jwt_algorithm: str = "HS256"

@@ -21,6 +21,7 @@ from app.services.context_access_service import (
     no_imports_reply,
 )
 from app.services.llm_service import ContextUserProfile, llm_service
+from app.services.rate_limit_service import rate_limit_service
 from app.services.search_service import SearchHit, search_service
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,8 @@ class ChatService:
     ) -> SendMessageResult | None:
         if not content.strip():
             raise LLMError("Message must not be empty")
+
+        await rate_limit_service.assert_chat_send_allowed(user_id)
 
         thread = await self._get_owned_thread(session, thread_id, user_id)
         if thread is None:

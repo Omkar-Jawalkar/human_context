@@ -8,11 +8,14 @@ from app.core.config import settings
 from app.core.database import engine
 from app.core.exception_handlers import app_error_handler
 from app.core.exceptions import AppError
+from app.core.redis import close_redis, init_redis
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    init_redis()
     yield
+    await close_redis()
     await engine.dispose()
 
 

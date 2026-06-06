@@ -2,12 +2,24 @@ import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from app.api.deps import get_db
+from app.core.exceptions import RateLimitError
 from app.main import app
 from app.models.chat_message import ChatMessage
 from app.models.chat_thread import ChatThread
 from app.models.enums import ChatMessageRole
 from app.services.chat_service import SendMessageResult
+
+
+@pytest.fixture(autouse=True)
+def _mock_chat_rate_limit():
+    with patch(
+        "app.services.chat_service.rate_limit_service.assert_chat_send_allowed",
+        new=AsyncMock(),
+    ):
+        yield
 
 
 def _mock_db_session():
@@ -128,6 +140,34 @@ def test_send_message_unknown_thread_returns_404(
         )
 
     assert response.status_code == 404
+
+
+def test_send_message_rate_limited_returns_429(
+    jwt_settings, auth_headers, override_current_user, api_client
+):
+    thread_id = uuid.uuid4()
+    with patch(
+        "app.api.v1.endpoints.chats.chat_service.send_message",
+        new=AsyncMock(
+            side_effect=RateLimitError(
+                "Chat message limit reached (20 per 6 hours).",
+                retry_after_seconds=1800,
+            )
+        ),
+    ):
+        response = api_client.post(
+            f"/api/v1/chats/{thread_id}/messages",
+            json={"content": "Hello"},
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "1800"
+    body = response.json()
+    assert body["code"] == "rate_limit_error"
+    assert "20 per 6 hours" in body["detail"]
+    assert body["retry_after_seconds"] == 1800
+    assert body["retry_at"].endswith("Z")
 
 
 def test_delete_unknown_thread_returns_404(

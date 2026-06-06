@@ -498,6 +498,20 @@ Persists the user message, calls the LLM, persists the assistant reply, then ret
 
 **Errors:** `404` if thread not found or not owned by caller
 
+**Rate limit:** 20 sends per user per 6 hours (fixed window, shared across all threads). When exceeded:
+
+- Status: `429`
+- Body:
+  ```json
+  {
+    "detail": "Chat message limit reached (20 per 6 hours).",
+    "code": "rate_limit_error",
+    "retry_after_seconds": 3600,
+    "retry_at": "2026-06-06T20:00:00Z"
+  }
+  ```
+- Header: `Retry-After: <seconds>` (same value as `retry_after_seconds`)
+
 ---
 
 ### Tasks (Celery demo) — `/api/v1/tasks`

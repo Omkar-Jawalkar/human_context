@@ -68,3 +68,24 @@ class ConflictError(AppError):
     """Request conflicts with current resource state."""
 
     code = "conflict_error"
+
+
+class RateLimitError(AppError):
+    """Rate limit exceeded."""
+
+    code = "rate_limit_error"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
+class ServiceUnavailableError(AppError):
+    """Required dependency is temporarily unavailable."""
+
+    code = "service_unavailable"

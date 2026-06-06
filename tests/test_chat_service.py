@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.exceptions import LLMError
+from app.core.exceptions import LLMError, RateLimitError
 from app.models.chat_message import ChatMessage
 from app.models.chat_thread import ChatThread
 from app.models.enums import ChatMessageRole
@@ -12,6 +12,15 @@ from app.models.user import User
 from app.services.chat_service import ChatService
 from app.services.llm_service import ContextUserProfile
 from app.services.search_service import SearchHit
+
+
+@pytest.fixture(autouse=True)
+def _mock_chat_rate_limit():
+    with patch(
+        "app.services.chat_service.rate_limit_service.assert_chat_send_allowed",
+        new=AsyncMock(),
+    ):
+        yield
 
 
 def _make_hit(content: str, distance: float, metadata: dict | None = None) -> SearchHit:
@@ -223,6 +232,26 @@ async def test_send_message_without_thread_history_sends_empty_history(
     assert call_kwargs["context_user"] == ContextUserProfile(
         id=thread.context_user_id, name="Context User"
     )
+
+
+@pytest.mark.asyncio
+@patch("app.services.chat_service.rate_limit_service")
+async def test_send_message_calls_rate_limit_before_thread_lookup(mock_rate_limit):
+    service = ChatService()
+    db = AsyncMock()
+    user_id = uuid.uuid4()
+    mock_rate_limit.assert_chat_send_allowed = AsyncMock(
+        side_effect=RateLimitError(
+            "Chat message limit reached (20 per 6 hours).",
+            retry_after_seconds=120,
+        )
+    )
+
+    with pytest.raises(RateLimitError):
+        await service.send_message(db, uuid.uuid4(), user_id, "Hello")
+
+    mock_rate_limit.assert_chat_send_allowed.assert_awaited_once_with(user_id)
+    db.scalar.assert_not_called()
 
 
 @pytest.mark.asyncio
