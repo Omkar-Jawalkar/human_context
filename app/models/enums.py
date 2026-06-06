@@ -10,3 +10,8 @@ class ImportJobStatus(enum.StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class ChatMessageRole(enum.StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"

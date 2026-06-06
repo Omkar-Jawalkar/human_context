@@ -137,5 +137,5 @@ def test_query_uses_target_user_id_from_body(
     assert response.status_code == 200
     mock_answer_query.assert_called_once()
     call_args = mock_answer_query.call_args
-    assert call_args[0][2] == target_user.id
-    assert call_args[0][2] != caller.id
+    assert call_args[0][2] == target_user
+    assert call_args[0][2].id != caller.id

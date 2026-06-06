@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError, LLMError
-from app.services.llm_service import llm_service
+from app.models.user import User
+from app.services.context_access_service import (
+    context_access_service,
+    no_imports_reply,
+)
+from app.services.llm_service import ContextUserProfile, llm_service
 from app.services.search_service import SearchHit, search_service
 
 logger = logging.getLogger(__name__)
@@ -45,30 +50,42 @@ class QueryService:
         self,
         db: AsyncSession,
         query: str,
-        user_id: uuid.UUID,
+        target_user: User,
         *,
         is_development: bool = False,
     ) -> QueryResult:
         if not query.strip():
             raise LLMError("Query must not be empty")
 
+        if not await context_access_service.user_has_imported_conversations(
+            db, target_user.id
+        ):
+            return QueryResult(
+                answer=no_imports_reply(target_user.name),
+                sources=None,
+            )
+
         try:
             hits = await search_service.search_similar_messages(
-                db, query, user_id, limit=5
+                db, query, target_user.id, limit=5
             )
         except AppError:
             raise
 
         contexts = [hit.record.content or "" for hit in hits]
+        context_profile = ContextUserProfile(id=target_user.id, name=target_user.name)
 
         try:
             answer = await asyncio.to_thread(
-                llm_service.generate_answer, query, contexts
+                llm_service.generate_answer,
+                query,
+                contexts,
+                context_user=context_profile,
             )
         except AppError:
             raise
         except Exception as exc:
-            logger.exception("Unexpected query failure for user_id=%s", user_id)
+            logger.exception("Unexpected query failure for user_id=%s", target_user.id)
             raise LLMError(f"Failed to generate answer: {exc}") from exc
 
         sources = None

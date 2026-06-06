@@ -354,7 +354,7 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 }
 ```
 
-`user_id` is the **target user** for search scope (may differ from JWT user).
+`user_id` is the **target user** for search scope (may differ from JWT user). Caller may only query **self** or a user in the **same organization**. If the target user has no imported conversations, the response is a canned message (no LLM call).
 
 **Response**
 
@@ -375,6 +375,128 @@ Target user must have joined an organization (`organization_id` set), or `403`.
 ```
 
 `sources` may be `null`.
+
+---
+
+### In-app chat — `/api/v1/chats`
+
+Protected routes scoped to the JWT user. Chat messages are stored in separate tables and are **not** embedded for search.
+
+| Method | Path | Status |
+|--------|------|--------|
+| `POST` | `/chats` | `201` |
+| `GET` | `/chats` | `200` |
+| `GET` | `/chats/{thread_id}` | `200` |
+| `PATCH` | `/chats/{thread_id}` | `200` |
+| `DELETE` | `/chats/{thread_id}` | `204` |
+| `POST` | `/chats/{thread_id}/messages` | `200` |
+
+#### `POST /chats` — `201`
+
+**Request**
+
+```json
+{
+"title": "New chat",
+"context_user_id": "uuid",
+"use_thread_history": false
+}
+```
+
+- `context_user_id` (required) — whose imported Claude history RAG always searches. Caller must be self or same-org teammate (immutable after create).
+- `use_thread_history` (required) — when `true`, each reply includes the last 5 in-thread messages in the LLM prompt; when `false`, only the current message (+ RAG snippets).
+
+RAG over imported history is **always on**. If `context_user_id` has no imported conversations, the assistant reply is a canned message (no LLM call).
+
+**Response:** `ChatThreadResponse` (no messages)
+
+#### `GET /chats` — `200`
+
+**Response**
+
+```json
+{
+"threads": [
+  {
+    "id": "uuid",
+    "user_id": "uuid",
+    "context_user_id": "uuid",
+    "organization_id": "uuid | null",
+    "title": "string",
+    "use_thread_history": false,
+    "created_at": "ISO-8601",
+    "updated_at": "ISO-8601",
+    "messages": []
+  }
+]
+}
+```
+
+#### `GET /chats/{thread_id}` — `200`
+
+**Response:** `ChatThreadResponse` with `messages` ordered by `sequence`.
+
+#### `PATCH /chats/{thread_id}` — `200`
+
+**Request** (all fields optional)
+
+```json
+{
+"title": "Renamed chat",
+"use_thread_history": true
+}
+```
+
+#### `DELETE /chats/{thread_id}` — `204`
+
+#### `POST /chats/{thread_id}/messages` — `200`
+
+Persists the user message, calls the LLM, persists the assistant reply, then returns both.
+
+**Request**
+
+```json
+{
+"content": "string"
+}
+```
+
+**Response**
+
+```json
+{
+"user_message": {
+  "id": "uuid",
+  "thread_id": "uuid",
+  "role": "user",
+  "content": "string",
+  "sequence": 1,
+  "sources": null,
+  "created_at": "ISO-8601"
+},
+"assistant_message": {
+  "id": "uuid",
+  "thread_id": "uuid",
+  "role": "assistant",
+  "content": "string",
+  "sequence": 2,
+  "sources": [
+    {
+      "content": "string | null",
+      "distance": 0.12,
+      "message_id": "string | null",
+      "conversation_id": "string | null",
+      "sender": "string | null",
+      "import_job_id": "string | null"
+    }
+  ],
+  "created_at": "ISO-8601"
+}
+```
+
+`assistant_message.sources` is `null` when the context user has no imports (canned reply) or when search returns no hits.
+
+**Errors:** `404` if thread not found or not owned by caller
 
 ---
 
