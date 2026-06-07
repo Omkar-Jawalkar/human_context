@@ -1,0 +1,10 @@
+# Set API_DOMAIN in .env (e.g. api.yourdomain.com).
+# Let's Encrypt requires a real domain with an A record pointing at this VPS.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	reverse_proxy api:8000
+}

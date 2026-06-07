@@ -1,9 +1,11 @@
 # Full production stack for VPS deployment (e.g. Hostinger Ubuntu 24.04).
 #
 # Usage:
-#   cp .env.example .env   # then set production secrets
+#   cp .env.example .env   # set production secrets + API_DOMAIN
+#   Point DNS A record: api.yourdomain.com → VPS public IP
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
+# HTTPS: Caddy terminates TLS and proxies to the api container (port 8000 is internal only).
 # Local dev still uses docker-compose.yml (Redis + Postgres only) with `make dev`.
 
 x-app-environment: &app-environment
@@ -36,6 +38,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # No ports — internal Docker network only (api/worker/flower/redisinsight).
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -49,7 +52,7 @@ services:
     image: redis/redisinsight:latest
     restart: unless-stopped
     ports:
-      - "${REDISINSIGHT_PORT:-5540}:5540"
+      - "${REDISINSIGHT_BIND:-127.0.0.1}:${REDISINSIGHT_PORT:-5540}:5540"
     environment:
       RI_REDIS_HOST: redis
       RI_REDIS_PORT: "6379"
@@ -64,8 +67,9 @@ services:
     build: .
     restart: unless-stopped
     command: ["api"]
-    ports:
-      - "${API_PORT:-8000}:8000"
+    # Not published — Caddy is the only public entrypoint.
+    expose:
+      - "8000"
     env_file: .env
     environment:
       <<: *app-environment
@@ -97,7 +101,7 @@ services:
     restart: unless-stopped
     command: ["flower"]
     ports:
-      - "${FLOWER_PORT:-5555}:5555"
+      - "${FLOWER_BIND:-127.0.0.1}:${FLOWER_PORT:-5555}:5555"
     env_file: .env
     environment:
       <<: *app-environment
@@ -109,8 +113,27 @@ services:
       worker:
         condition: service_started
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   postgres_data:
   redis_data:
   redisinsight_data:
   uploads:
+  caddy_data:
+  caddy_config:
