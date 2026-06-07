@@ -1,3 +1,6 @@
+# Local development infrastructure only (API + workers run on the host via `make dev`).
+# For a full VPS stack (API, worker, Flower, Redis Insight), use docker-compose.prod.yml.
+
 services:
   redis:
     image: redis:7-alpine

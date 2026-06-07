@@ -31,6 +31,9 @@ dev = [
     "python-lsp-ruff>=2.2.0",
     "flower>=2.0.0",
 ]
+prod = [
+    "flower>=2.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
