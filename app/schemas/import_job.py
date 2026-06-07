@@ -32,3 +32,8 @@ class ImportJobResponse(BaseModel):
     duplicate: bool = False
 
     model_config = {"from_attributes": True}
+
+
+from app.schemas.pagination import PaginatedResponse
+
+ImportJobListResponse = PaginatedResponse[ImportJobResponse]

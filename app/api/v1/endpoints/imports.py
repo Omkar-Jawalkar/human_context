@@ -3,12 +3,13 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.core.exceptions import AuthorizationError
 from app.models.enums import ImportJobStatus, ImportSource
 from app.models.import_job import ImportJob
 from app.models.user import User
-from app.schemas.import_job import ImportJobResponse, ImportJobStats
+from app.schemas.import_job import ImportJobListResponse, ImportJobResponse, ImportJobStats
+from app.schemas.pagination import PaginationParams, build_paginated_response
 from app.services.import_api_service import import_api_service
 from app.workers.tasks import enqueue_claude_import
 
@@ -37,12 +38,29 @@ def _to_response(
     )
 
 
+@router.get("", response_model=ImportJobListResponse)
+async def list_import_jobs(
+    pagination: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ImportJobListResponse:
+    jobs, total = await import_api_service.list_import_jobs(
+        db, current_user.id, pagination
+    )
+    return build_paginated_response(
+        [_to_response(job) for job in jobs],
+        page=pagination.page,
+        page_size=pagination.page_size,
+        total=total,
+    )
+
+
 @router.post("", response_model=ImportJobResponse, status_code=202)
 async def upload_claude_export(
     file: UploadFile = File(...),
     account_id: str = Form(default="default"),
-    user_id: uuid.UUID | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ImportJobResponse:
     data = await file.read()
     if not data:
@@ -51,25 +69,19 @@ async def upload_claude_export(
     file_hash = import_api_service.compute_file_hash(data)
     file_name = file.filename or "conversations.json"
 
-    # Default user is created if not provided
-    if user_id is None:
-        user = await import_api_service.get_or_create_default_user(db)
-    else:
-        user = await db.get(User, user_id)
-        if user is None:
-            raise HTTPException(status_code=404, detail=f"User {user_id} not found")
-
-    if user.organization_id is None:
+    if current_user.organization_id is None:
         raise AuthorizationError("User must join an organization before importing")
 
-    existing = await import_api_service.get_existing_import_job(db, user.id, file_hash)
+    existing = await import_api_service.get_existing_import_job(
+        db, current_user.id, file_hash
+    )
     if existing is not None:
         await db.commit()
         return _to_response(existing, duplicate=True)
 
     job = await import_api_service.create_import_job(
         db,
-        user=user,
+        user=current_user,
         file_name=file_name,
         file_hash=file_hash,
     )
@@ -86,8 +98,11 @@ async def upload_claude_export(
 async def get_import_job(
     import_job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ImportJobResponse:
-    job = await db.get(ImportJob, import_job_id)
+    job = await import_api_service.get_import_job_for_user(
+        db, import_job_id, current_user.id
+    )
     if job is None:
         raise HTTPException(status_code=404, detail=f"Import job {import_job_id} not found")
     return _to_response(job)

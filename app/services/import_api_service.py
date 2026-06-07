@@ -3,33 +3,44 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.listing import paginate
 from app.models.enums import ImportJobStatus, ImportSource
 from app.models.import_job import ImportJob
-from app.models.organization import Organization
 from app.models.user import User
+from app.schemas.pagination import PaginationParams
 from app.services.import_service import import_service
 
 
 class ImportApiService:
-    async def get_or_create_default_user(self, session: AsyncSession) -> User:
-        stmt = select(User).where(User.email == settings.default_user_email)
-        user = await session.scalar(stmt)
-        if user is not None:
-            return user
-
-        organization = Organization(name="Default Organization")
-        session.add(organization)
-        await session.flush()
-
-        user = User(
-            organization_id=organization.id,
-            email=settings.default_user_email,
-            name="Default User",
+    async def list_import_jobs(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        pagination: PaginationParams,
+    ) -> tuple[list[ImportJob], int]:
+        stmt = (
+            select(ImportJob)
+            .where(ImportJob.user_id == user_id)
+            .order_by(ImportJob.created_at.desc())
         )
-        session.add(user)
-        await session.flush()
-        return user
+        return await paginate(
+            session,
+            stmt,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
+
+    async def get_import_job_for_user(
+        self,
+        session: AsyncSession,
+        import_job_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> ImportJob | None:
+        stmt = select(ImportJob).where(
+            ImportJob.id == import_job_id,
+            ImportJob.user_id == user_id,
+        )
+        return await session.scalar(stmt)
 
     async def get_existing_import_job(
         self, session: AsyncSession, user_id: uuid.UUID, file_hash: str
