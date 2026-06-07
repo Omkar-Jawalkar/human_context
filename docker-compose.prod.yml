@@ -1,0 +1,116 @@
+# Full production stack for VPS deployment (e.g. Hostinger Ubuntu 24.04).
+#
+# Usage:
+#   cp .env.example .env   # then set production secrets
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Local dev still uses docker-compose.yml (Redis + Postgres only) with `make dev`.
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  DEBUG: "false"
+  # POSTGRES_PASSWORD must be set in .env (no defaults — never commit real values).
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/1
+  UPLOAD_DIR: /tmp/human_context_uploads
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    restart: unless-stopped
+    ports:
+      - "${REDISINSIGHT_PORT:-5540}:5540"
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: human-context-redis
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api:
+    build: .
+    restart: unless-stopped
+    command: ["api"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      <<: *app-environment
+    volumes:
+      - uploads:/tmp/human_context_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["worker"]
+    env_file: .env
+    environment:
+      <<: *app-environment
+    volumes:
+      - uploads:/tmp/human_context_uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  flower:
+    build: .
+    restart: unless-stopped
+    command: ["flower"]
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    env_file: .env
+    environment:
+      <<: *app-environment
+      FLOWER_PORT: "5555"
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  redisinsight_data:
+  uploads:

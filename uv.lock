@@ -471,6 +471,9 @@ dev = [
     { name = "python-lsp-server", extra = ["rope"] },
     { name = "ruff" },
 ]
+prod = [
+    { name = "flower" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -481,6 +484,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "flower", marker = "extra == 'dev'", specifier = ">=2.0.0" },
+    { name = "flower", marker = "extra == 'prod'", specifier = ">=2.0.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "pgvector", specifier = ">=0.3.6" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
@@ -496,7 +500,7 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "prod"]
 
 [[package]]
 name = "humanize"
