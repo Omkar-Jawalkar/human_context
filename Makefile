@@ -1,4 +1,4 @@
-.PHONY: setup install dev worker flower redis postgres migrate test lint re-embed
+.PHONY: setup install dev worker flower redis postgres migrate test lint re-embed prod-human-context
 
 setup:
 	bash scripts/setup.sh
@@ -33,3 +33,6 @@ test:
 
 lint:
 	ruff check app tests
+
+prod-human-context:
+	bash scripts/prod-human-context.sh
