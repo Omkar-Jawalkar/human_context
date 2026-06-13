@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+    oauth_allowed_redirect_uris: Annotated[list[str], NoDecode] = [
+        "http://localhost:3000/auth/callback/google",
+        "http://localhost:3000/auth/callback/github",
+        "https://human-context.byomkar.tech/auth/callback/google",
+        "https://human-context.byomkar.tech/auth/callback/github",
+    ]
+
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -60,6 +71,13 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("oauth_allowed_redirect_uris", mode="before")
+    @classmethod
+    def parse_oauth_allowed_redirect_uris(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [uri.strip() for uri in value.split(",") if uri.strip()]
         return value
 
     @property

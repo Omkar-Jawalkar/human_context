@@ -1,5 +1,9 @@
 # Local development infrastructure only (API + workers run on the host via `make dev`).
 # For a full VPS stack (API, worker, Flower, Redis Insight), use docker-compose.prod.yml.
+#
+# Fixed project name — Docker names volumes {project}_{volume}. Without this, renaming the
+# repo folder creates a new empty postgres_data volume instead of reusing existing data.
+name: human_context
 
 services:
   redis:

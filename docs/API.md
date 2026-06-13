@@ -73,6 +73,48 @@ Content-Type: application/json
 
 **Errors:** `401` — `{ "detail": "...", "code": "authentication_error" }`
 
+### Google OAuth (public)
+
+```http
+POST /api/v1/auth/google/token
+Content-Type: application/json
+```
+
+**Request**
+
+```json
+{
+  "code": "<authorization-code-from-google>",
+  "redirect_uri": "http://localhost:3000/auth/callback/google"
+}
+```
+
+**Response** `200` — same shape as login.
+
+**Errors:** `401` invalid code / unverified email / disallowed `redirect_uri`; `503` if Google OAuth is not configured on the server.
+
+See [OAUTH_FRONTEND.md](./OAUTH_FRONTEND.md) for full Next.js integration steps.
+
+### GitHub OAuth (public)
+
+```http
+POST /api/v1/auth/github/token
+Content-Type: application/json
+```
+
+**Request**
+
+```json
+{
+  "code": "<authorization-code-from-github>",
+  "redirect_uri": "http://localhost:3000/auth/callback/github"
+}
+```
+
+**Response** `200` — same shape as login.
+
+**Errors:** `401` invalid code / no verified email / disallowed `redirect_uri`; `503` if GitHub OAuth is not configured on the server.
+
 ---
 
 ## Error format

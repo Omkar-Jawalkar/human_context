@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.chat_thread import ChatThread
     from app.models.conversation import Conversation
     from app.models.import_job import ImportJob
+    from app.models.oauth_account import OAuthAccount
     from app.models.organization import Organization
     
 
@@ -43,6 +44,7 @@ class User(Base):
     )
 
     organization: Mapped[Organization | None] = relationship(back_populates="users")
+    oauth_accounts: Mapped[list[OAuthAccount]] = relationship(back_populates="user")
     conversations: Mapped[list[Conversation]] = relationship(back_populates="user")
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="user")
     chat_threads: Mapped[list[ChatThread]] = relationship(

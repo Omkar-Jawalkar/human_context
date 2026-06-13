@@ -13,6 +13,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     EmbeddingRecord,
     ImportJob,
     Message,
+    OAuthAccount,
     Organization,
     User,
 )
