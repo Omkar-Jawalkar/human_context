@@ -7,7 +7,7 @@ alwaysApply: false
 # Authentication
 
 - Mount new business endpoints on `protected_router` in `app/api/v1/router.py` — not on `api_router` unless intentionally public.
-- Public routes: health checks, `POST /api/v1/auth/register`, and `POST /api/v1/auth/login`.
+- Public routes: health checks, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/google/token`, and `POST /api/v1/auth/github/token`.
 - **Caller vs target user:** JWT / `current_user` = authenticated caller; `user_id` in body or form = target user whose data is scoped (query search, import ownership). Do not conflate them.
 - Do not use request `user_id` as proof of identity — identity comes only from JWT.
 - Use `current_user: User = Depends(get_current_user)` in handlers only when caller identity is needed (audit, future per-caller authorization).

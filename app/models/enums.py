@@ -15,3 +15,8 @@ class ImportJobStatus(enum.StrEnum):
 class ChatMessageRole(enum.StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
+
+
+class OAuthProvider(enum.StrEnum):
+    GOOGLE = "google"
+    GITHUB = "github"
